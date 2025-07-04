@@ -4,7 +4,7 @@ import streamlit as st
 st.set_page_config(page_title="Konaklama Raporu", layout="wide")
 st.title("🏨 Konaklama Analiz Merkezi")
 
-# 📑 Sayfa Seçici Menü
+# 📄 Sayfa Seçici Menü
 sayfa = st.selectbox("📄 Rapor Türünü Seçin", [
     "📘 Otel Alış ve Giriş Ayına Göre Rapor",
     "📙 Sadece Giriş Ayına Göre Rapor"
@@ -12,11 +12,11 @@ sayfa = st.selectbox("📄 Rapor Türünü Seçin", [
 
 @st.cache_data
 def load_data():
-    file_path = "AKAY2024.xlsx"  # 🔄 Sadece dosya adı kaldı
-    df = pd.read_excel(file_path)
+    file_path = "AKAY2024.xlsx"  # GitHub'da aynı klasörde olmalı
+    df = pd.read_excel(file_path, engine="openpyxl")
     df.columns = df.columns.str.strip()
 
-    # Temizlik ve filtreler
+    # Filtreler
     df = df[df['Kod 3'] != 'XXX']
     if 'İntern Notu' in df.columns:
         df = df[~df['İntern Notu'].astype(str).str.upper().str.contains("BLOKAJ")]
@@ -32,22 +32,23 @@ def load_data():
     df['Geceleme'] = df['Geceleme'].apply(lambda x: x if x > 0 else 1)
     df['Kişi_Geceleme'] = df['Geceleme'] * 2
 
-    # Aylar (Türkçe)
+    # Türkçe aylar
     aylar_tr = {
         1: "OCAK", 2: "ŞUBAT", 3: "MART", 4: "NİSAN", 5: "MAYIS", 6: "HAZİRAN",
         7: "TEMMUZ", 8: "AĞUSTOS", 9: "EYLÜL", 10: "EKİM", 11: "KASIM", 12: "ARALIK"
     }
+
     df['Giriş Ayı'] = df['Giriş Tarihi'].dt.month.map(aylar_tr)
     df['Giriş Ayı Sıra'] = df['Giriş Tarihi'].dt.strftime('%Y-%m')
 
-    df['Otel Alış Ayı'] = df['Otel Alış Tar.'].dt.month.map(aylar_tr) + " " + df['Otel Alış Tar.'].dt.year.astype(str)
+    df['Otel Alış Ayı'] = df['Otel Alış Tar.'].dt.month.map(aylar_tr) + df['Otel Alış Tar.'].dt.strftime('%y').apply(lambda x: x if x.startswith('0') else x[-2:])
     df['Otel Alış Ayı Sıra'] = df['Otel Alış Tar.'].dt.strftime('%Y-%m')
 
     return df
 
 df = load_data()
 
-# 🔎 Ortak Filtreler
+# 🎯 FİLTRELER
 st.sidebar.header("🔎 Filtrele")
 secili_otel = st.sidebar.multiselect("Otel Seçin", sorted(df["Otel Adı"].dropna().unique()))
 secili_operatör = st.sidebar.multiselect("Operatör Seçin", sorted(df["Operatör Adı"].dropna().unique()))
@@ -61,13 +62,13 @@ if secili_operatör:
 if secili_oda:
     df_filtered = df_filtered[df_filtered["Oda Tipi Tanmı"].isin(secili_oda)]
 
-# 📘 SAYFA 1: Giriş ve Alış Ayı
+# 📘 SAYFA 1: Otel Alış ve Giriş Ayına Göre
 if sayfa == "📘 Otel Alış ve Giriş Ayına Göre Rapor":
-    st.markdown("### 📘 Kişi Başı Geceleme Fiyatları (Giriş Ayı ve Otel Alış Ayına Göre)")
+    st.markdown("### 📘 Kişi Başı Geceleme Fiyatları (Otel Alış Ayı ve Giriş Ayına Göre)")
 
     rapor1 = (
         df_filtered
-        .groupby(['Operatör Adı', 'Bölge', 'Otel Adı', 'Oda Tipi Tanmı', 'Otel Alış Ayı', 'Otel Alış Ayı Sıra', 'Giriş Ayı'])
+        .groupby(['Operatör Adı', 'Bölge', 'Otel Adı', 'Oda Tipi Tanmı', 'Otel Alış Ayı', 'Otel Alış Ayı Sıra', 'Giriş Ayı', 'Giriş Ayı Sıra'])
         .agg(
             Toplam_Tutar=('Total Alış Fat.', 'sum'),
             Toplam_Kisi_Geceleme=('Kişi_Geceleme', 'sum')
@@ -76,8 +77,8 @@ if sayfa == "📘 Otel Alış ve Giriş Ayına Göre Rapor":
     )
     rapor1['Kişi Başı Geceleme (€)'] = rapor1['Toplam_Tutar'] / rapor1['Toplam_Kisi_Geceleme']
 
-    # Doğru sıralama için Otel Alış Ayı’na göre sırala
-    rapor1 = rapor1.sort_values("Otel Alış Ayı Sıra")
+    # Sıralama
+    rapor1 = rapor1.sort_values(["Otel Alış Ayı Sıra", "Giriş Ayı Sıra"])
 
     pivot1 = rapor1.pivot_table(
         index=['Operatör Adı', 'Otel Adı', 'Oda Tipi Tanmı', 'Otel Alış Ayı'],
@@ -88,13 +89,13 @@ if sayfa == "📘 Otel Alış ve Giriş Ayına Göre Rapor":
 
     st.dataframe(pivot1, use_container_width=True)
 
-# 📙 SAYFA 2: Giriş Ayı
+# 📙 SAYFA 2: Sadece Giriş Ayına Göre
 elif sayfa == "📙 Sadece Giriş Ayına Göre Rapor":
-    st.markdown("### 📙 Kişi Başı Geceleme Fiyatları (Yalnızca Giriş Ayına Göre)")
+    st.markdown("### 📙 Kişi Başı Geceleme Fiyatları (Giriş Ayına Göre)")
 
     rapor2 = (
         df_filtered
-        .groupby(['Operatör Adı', 'Bölge', 'Otel Adı', 'Oda Tipi Tanmı', 'Giriş Ayı'])
+        .groupby(['Operatör Adı', 'Bölge', 'Otel Adı', 'Oda Tipi Tanmı', 'Giriş Ayı', 'Giriş Ayı Sıra'])
         .agg(
             Toplam_Tutar=('Total Alış Fat.', 'sum'),
             Toplam_Kisi_Geceleme=('Kişi_Geceleme', 'sum')
@@ -102,6 +103,7 @@ elif sayfa == "📙 Sadece Giriş Ayına Göre Rapor":
         .reset_index()
     )
     rapor2['Kişi Başı Geceleme (€)'] = rapor2['Toplam_Tutar'] / rapor2['Toplam_Kisi_Geceleme']
+    rapor2 = rapor2.sort_values("Giriş Ayı Sıra")
 
     pivot2 = rapor2.pivot_table(
         index=['Operatör Adı', 'Otel Adı', 'Oda Tipi Tanmı'],
