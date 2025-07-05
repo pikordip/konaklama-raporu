@@ -1,11 +1,11 @@
 import streamlit as st
 
-st.set_page_config(page_title="Ana Sayfa", layout="wide")
-
 st.title("🏠 Ana Sayfa")
 
-st.markdown("""
-Bu sayfa yalnızca uygulama içindeki diğer sayfalara yönlendirme veya bilgi amaçlıdır.
+if st.button("Giriş Ayına Göre Rapor"):
+    st.experimental_set_query_params(page="GirisAyinaGore")
 
-Lütfen soldaki menüden istediğiniz rapor sayfasını seçin.
-""")
+if st.button("Alış Ayına Göre Rapor"):
+    st.experimental_set_query_params(page="AlisAyinaGore")
+
+st.markdown("Soldaki menüyü kullanarak sayfalar arasında geçiş yapabilirsiniz.")
