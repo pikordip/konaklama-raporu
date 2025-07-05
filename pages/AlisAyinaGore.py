@@ -1,37 +1,44 @@
+import os
 import pandas as pd
 import streamlit as st
 
 st.set_page_config(page_title="Konaklama Raporu", layout="wide")
-st.title("🏨 Konaklama Analiz Raporu")
 
-# 🔄 Excel verisini sabit olarak oku
+# data klasöründeki excel dosyasını otomatik bul (tek dosya varsayımı)
+def find_excel_file():
+    files = os.listdir("data")
+    for f in files:
+        if f.endswith(".xlsx"):
+            return f
+    return None
+
+file_name = find_excel_file()
+if file_name is None:
+    st.error("Data klasöründe .xlsx uzantılı dosya bulunamadı!")
+    st.stop()
+
+file_path = f"data/{file_name}"
+
 @st.cache_data
-def load_data(file_name="AKAY2025.xlsx"):
-    file_path = f"data/{file_name}"
-    df = pd.read_excel(file_path)
+def load_data(path):
+    df = pd.read_excel(path)
     df.columns = df.columns.str.strip()
 
-    # Temizleme
     df = df[df['Kod 3'] != 'XXX']
     if 'İntern Notu' in df.columns:
         df = df[~df['İntern Notu'].astype(str).str.upper().str.contains("BLOKAJ")]
     df = df[df['Yetişkin'] == 2]
 
-    # Tarih alanları
-    df['Giriş Tarihi'] = pd.to_datetime(df['Giriş Tarihi'], errors='coerce')
-    df['Çıkış Tarihi'] = pd.to_datetime(df['Çıkış Tarihi'], errors='coerce')
-    df['Otel Alış Tar.'] = pd.to_datetime(df['Otel Alış Tar.'], errors='coerce')
+    df['Giriş Tarihi'] = pd.to_datetime(df['Giriş Tarihi'])
+    df['Çıkış Tarihi'] = pd.to_datetime(df['Çıkış Tarihi'])
+    df['Otel Alış Tar.'] = pd.to_datetime(df['Otel Alış Tar.'])
 
-    # Geceleme hesapla
     df['Geceleme'] = (df['Çıkış Tarihi'] - df['Giriş Tarihi']).dt.days
     df['Geceleme'] = df['Geceleme'].apply(lambda x: x if x > 0 else 1)
     df['Kişi_Geceleme'] = df['Geceleme'] * 2
 
-    # Ay isimleri
-    aylar = {
-        1: "OCAK", 2: "ŞUBAT", 3: "MART", 4: "NİSAN", 5: "MAYIS", 6: "HAZİRAN",
-        7: "TEMMUZ", 8: "AĞUSTOS", 9: "EYLÜL", 10: "EKİM", 11: "KASIM", 12: "ARALIK"
-    }
+    aylar = {1: "OCAK", 2: "ŞUBAT", 3: "MART", 4: "NİSAN", 5: "MAYIS", 6: "HAZİRAN",
+             7: "TEMMUZ", 8: "AĞUSTOS", 9: "EYLÜL", 10: "EKİM", 11: "KASIM", 12: "ARALIK"}
 
     df['Giriş Ayı'] = df['Giriş Tarihi'].dt.month.map(aylar)
     df['Otel Alış Ayı'] = df['Otel Alış Tar.'].dt.month.map(aylar) + " " + df['Otel Alış Tar.'].dt.year.astype(str)
@@ -39,18 +46,13 @@ def load_data(file_name="AKAY2025.xlsx"):
 
     return df.sort_values("Otel Alış Ayı Sıra")
 
-# ⏱️ Güncelleme tarihi göster
-def get_last_update(df):
-    max_date = df['Otel Alış Tar.'].max()
-    return max_date.strftime("%d.%m.%Y") if pd.notnull(max_date) else "Bilinmiyor"
+df = load_data(file_path)
 
-# 📥 Veri çek
-df = load_data("AKAY2025.xlsx")
-last_update = get_last_update(df)
+# Güncelleme tarihi
+last_update = df['Otel Alış Tar.'].max().strftime("%d.%m.%Y")
+st.markdown(f"**Veri Güncelleme Tarihi:** {last_update}")
 
-st.markdown(f"**📅 Veri Güncelleme Tarihi:** `{last_update}`")
-
-# 🎛️ Filtresel seçenekler
+# Filtreler
 st.sidebar.header("🔎 Filtreler")
 oteller = st.sidebar.multiselect("🏨 Otel", sorted(df["Otel Adı"].dropna().unique()))
 operatörler = st.sidebar.multiselect("🧳 Operatör", sorted(df["Operatör Adı"].dropna().unique()))
@@ -64,7 +66,7 @@ if operatörler:
 if odalar:
     df_filtreli = df_filtreli[df_filtreli['Oda Tipi Tanmı'].isin(odalar)]
 
-# 📊 Rapor
+# Raporlama
 rapor = (
     df_filtreli.groupby(['Operatör Adı', 'Bölge', 'Otel Adı', 'Oda Tipi Tanmı', 'Otel Alış Ayı', 'Giriş Ayı'])
     .agg(
@@ -83,6 +85,5 @@ pivot = rapor.pivot_table(
     aggfunc='mean'
 ).applymap(lambda x: f"{x:.2f} €" if pd.notnull(x) else "")
 
-# 📈 Tabloyu göster
 st.markdown("### 📊 Kişi Başı Geceleme Fiyatları")
 st.dataframe(pivot, use_container_width=True)
