@@ -16,7 +16,7 @@ st.title("📊 Alış Ayına Göre Kişi Başı Geceleme Tutarları")
 # 📁 Tek Excel dosyasını data klasöründen bul
 data_files = glob.glob("data/*.xlsx")
 if not data_files:
-    st.error("❌ 'data' klasöründe .xlsx dosyası bulunamadı!")
+    st.error("❌ 'data' klasöründe .xlsx uzantılı dosya bulunamadı!")
     st.stop()
 
 file_path = data_files[0]
@@ -51,18 +51,25 @@ def load_data(path):
     df['Geceleme'] = df['Geceleme'].apply(lambda x: x if x > 0 else 1)
     df['Kişi_Geceleme'] = df['Geceleme'] * 2
 
+    # 📅 Ay isimleri
     aylar = {
         1: "OCAK", 2: "ŞUBAT", 3: "MART", 4: "NİSAN", 5: "MAYIS", 6: "HAZİRAN",
         7: "TEMMUZ", 8: "AĞUSTOS", 9: "EYLÜL", 10: "EKİM", 11: "KASIM", 12: "ARALIK"
     }
 
-    df['Giriş Ayı'] = df['Giriş Tarihi'].dt.month.map(aylar)
-    df['Otel Alış Ayı'] = df['Otel Alış Tar.'].dt.month.map(aylar) + " " + df['Otel Alış Tar.'].dt.year.astype(str)
-    df['Otel Alış Ayı Sıra'] = df['Otel Alış Tar.'].dt.strftime('%Y-%m')
+    df['Giriş Ayı'] = df['Giriş Tarihi'].dt.month
+    df['Giriş Ayı İsim'] = df['Giriş Ayı'].map(aylar)
 
-    return df.sort_values("Otel Alış Ayı Sıra")
+    df['Otel Alış Ayı'] = df['Otel Alış Tar.'].dt.to_period("M").astype(str)
+    df['Otel Alış Ayı Sıra'] = df['Otel Alış Tar.'].dt.strftime('%Y-%m')
+    df['Otel Alış Ayı Etiket'] = df['Otel Alış Tar.'].dt.month.map(aylar) + " " + df['Otel Alış Tar.'].dt.year.astype(str)
+
+    return df
 
 df = load_data(file_path)
+
+# 🔔 Bilgilendirme Notu
+st.info("🔒 *Bu rapor yalnızca 2 yetişkin içeren ve çocuk, bebek veya ekstra yatak içermeyen rezervasyonları kapsamaktadır.*")
 
 # 🔎 Dinamik filtreler
 st.sidebar.header("🔎 Filtreler")
@@ -91,7 +98,7 @@ if selected_odalar:
 
 # 📊 Raporu oluştur
 rapor = (
-    df_f.groupby(['Operatör Adı', 'Bölge', 'Otel Adı', 'Oda Tipi Tanmı', 'Otel Alış Ayı', 'Giriş Ayı'])
+    df_f.groupby(['Operatör Adı', 'Bölge', 'Otel Adı', 'Oda Tipi Tanmı', 'Otel Alış Ayı Sıra', 'Otel Alış Ayı Etiket', 'Giriş Ayı İsim', 'Giriş Ayı'])
     .agg(
         Toplam_Tutar=('Total Alış Fat.', 'sum'),
         Toplam_Kisi_Geceleme=('Kişi_Geceleme', 'sum')
@@ -101,13 +108,24 @@ rapor = (
 
 rapor['Kişi Başı Geceleme (€)'] = rapor['Toplam_Tutar'] / rapor['Toplam_Kisi_Geceleme']
 
-# 📌 Pivot tablo
+# 📌 Pivot tablo oluşturma
 pivot = rapor.pivot_table(
-    index=['Operatör Adı', 'Otel Adı', 'Oda Tipi Tanmı', 'Otel Alış Ayı'],
-    columns='Giriş Ayı',
+    index=['Operatör Adı', 'Otel Adı', 'Oda Tipi Tanmı', 'Otel Alış Ayı Etiket'],
+    columns='Giriş Ayı İsim',
     values='Kişi Başı Geceleme (€)',
     aggfunc='mean'
-).applymap(lambda x: f"{x:.2f} €" if pd.notnull(x) else "")
+)
+
+# 🧹 Ay sıralaması
+ay_sirali = ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"]
+pivot = pivot[[col for col in ay_sirali if col in pivot.columns]]
+
+# 📋 Alış ayına göre sıralama (en eski yukarıda)
+pivot = pivot.reset_index().sort_values(by="Otel Alış Ayı Etiket", key=lambda x: pd.to_datetime(x, format='%B %Y', errors='coerce'))
+pivot.set_index(['Operatör Adı', 'Otel Adı', 'Oda Tipi Tanmı', 'Otel Alış Ayı Etiket'], inplace=True)
+
+# 💶 Sayısal verileri € formatına çevir
+pivot = pivot.applymap(lambda x: f"{x:.2f} €" if pd.notnull(x) else "")
 
 # 📈 Görselleştirme
 st.markdown("### 📈 Kişi Başı Geceleme Tutarları (Giriş Aylarına Göre)")
