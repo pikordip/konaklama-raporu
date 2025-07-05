@@ -10,8 +10,8 @@ if "authenticated" not in st.session_state or not st.session_state["authenticate
     st.stop()
 
 # 🌐 Sayfa yapılandırması
-st.set_page_config(page_title="Alış Ayına Göre Rapor", layout="wide")
-st.title("📊 Alış Ayına Göre Kişi Başı Geceleme Tutarları")
+st.set_page_config(page_title="Rezervasyon Tarihine Göre Rapor", layout="wide")
+st.title("📊 Rezervasyon Tarihine Göre Kişi Başı Geceleme Tutarı")
 
 # 📁 Tek Excel dosyasını data klasöründen bul
 data_files = glob.glob("data/*.xlsx")
