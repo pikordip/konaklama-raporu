@@ -11,10 +11,17 @@ def load_data(file_name="AKAY2025.xlsx"):
     df.columns = df.columns.str.strip()
 
     df['Otel Alış Tar.'] = pd.to_datetime(df['Otel Alış Tar.'], errors='coerce')
+    df['Giriş Tarihi'] = pd.to_datetime(df['Giriş Tarihi'], errors='coerce')
+    df['Çıkış Tarihi'] = pd.to_datetime(df['Çıkış Tarihi'], errors='coerce')
 
     # Temizleme
     df = df[df['Kod 3'] != 'XXX']
     df = df[df['Yetişkin'] == 2]
+    df = df[~df.get('İntern Notu', '').astype(str).str.upper().str.contains("BLOKAJ")]
+
+    df['Geceleme'] = (df['Çıkış Tarihi'] - df['Giriş Tarihi']).dt.days
+    df['Geceleme'] = df['Geceleme'].apply(lambda x: x if x > 0 else 1)
+    df['Kişi_Geceleme'] = df['Geceleme'] * 2
 
     return df
 
@@ -24,15 +31,30 @@ def get_last_update(df):
         return "Bilinmiyor"
     return max_date.strftime("%d.%m.%Y")
 
-# DİLEĞE BAĞLI: Dosya adını sidebar'dan seçilebilir yapmak istersen:
+# 🔍 Kullanıcının dosya seçmesi için seçenek
 file_options = ["AKAY2024.xlsx", "AKAY2025.xlsx"]
-selected_file = st.sidebar.selectbox("Veri Dosyası Seçin", file_options)
+selected_file = st.sidebar.selectbox("📁 Veri Dosyası Seçin", file_options)
 
+# 📄 Veri yükle ve güncelleme tarihi göster
 df = load_data(selected_file)
 last_update = get_last_update(df)
-st.markdown(f"**Veri Güncelleme Tarihi:** {last_update}")
+st.markdown(f"**📅 Veri Güncelleme Tarihi:** `{last_update}`")
+st.markdown(f"**📂 Seçilen Dosya:** `{selected_file}`")
 
-# Burada devam eden analiz kodunu yazabilirsin
-# Örnek:
-st.write(f"Seçilen dosya: {selected_file}")
-st.dataframe(df.head())
+# 🔎 Otel, Operatör, Oda Tipi filtreleri (isteğe bağlı)
+st.sidebar.header("🔎 Filtreler")
+oteller = st.sidebar.multiselect("🏨 Otel", sorted(df["Otel Adı"].dropna().unique()))
+operatörler = st.sidebar.multiselect("🧳 Operatör", sorted(df["Operatör Adı"].dropna().unique()))
+odalar = st.sidebar.multiselect("🛏️ Oda Tipi", sorted(df["Oda Tipi Tanmı"].dropna().unique()))
+
+df_f = df.copy()
+if oteller:
+    df_f = df_f[df_f["Otel Adı"].isin(oteller)]
+if operatörler:
+    df_f = df_f[df_f["Operatör Adı"].isin(operatörler)]
+if odalar:
+    df_f = df_f[df_f["Oda Tipi Tanmı"].isin(odalar)]
+
+# 🧾 Veri tablosunu göster
+st.markdown("### 📊 Filtrelenmiş Veri")
+st.dataframe(df_f, use_container_width=True)
