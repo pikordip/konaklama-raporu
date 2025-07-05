@@ -18,7 +18,7 @@ import streamlit as st
 st.set_page_config(page_title="Giriş", layout="centered")
 
 # Şifreni buraya tanımla
-CORRECT_PASSWORD = "seninsifren123"
+CORRECT_PASSWORD = "Metin03!"
 
 # Kullanıcı daha önce giriş yaptıysa, doğrudan geçsin
 if "authenticated" not in st.session_state:
