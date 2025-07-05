@@ -12,3 +12,29 @@ Bu uygulamada **Kişi Başı Geceleme Tutarları** üzerine iki farklı rapor su
 
 Lütfen sol menüden ilgili raporu seçerek devam edin.
 """)
+
+import streamlit as st
+
+st.set_page_config(page_title="Giriş", layout="centered")
+
+# Şifreni buraya tanımla
+CORRECT_PASSWORD = "seninsifren123"
+
+# Kullanıcı daha önce giriş yaptıysa, doğrudan geçsin
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+if not st.session_state["authenticated"]:
+    st.title("🔒 Giriş Ekranı")
+
+    password = st.text_input("Şifreyi giriniz", type="password")
+
+    if st.button("Giriş Yap"):
+        if password == CORRECT_PASSWORD:
+            st.session_state["authenticated"] = True
+            st.success("Giriş başarılı. Sol menüden raporlara ulaşabilirsiniz.")
+        else:
+            st.error("Hatalı şifre. Lütfen tekrar deneyin.")
+    st.stop()
+else:
+    st.success("✅ Giriş yapıldı. Raporlara erişebilirsiniz.")
