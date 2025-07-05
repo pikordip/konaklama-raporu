@@ -9,8 +9,8 @@ if "authenticated" not in st.session_state or not st.session_state["authenticate
     st.stop()
 
 # 🌐 Sayfa ayarları
-st.set_page_config(page_title="Giriş Tarihine Göre Rapor", layout="wide")
-st.title("📊 Giriş Ayına Göre Kişi Başı Geceleme Tutarları")
+st.set_page_config(page_title="Konaklama Tarihine Göre Rapor", layout="wide")
+st.title("📊 Konaklama Tarihine Göre Kişi Başı Geceleme Tutarı")
 
 # 📁 Tek Excel dosyasını otomatik bul
 def find_excel_file():
