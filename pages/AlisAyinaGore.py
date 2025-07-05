@@ -48,9 +48,12 @@ def load_data(path):
 
 df = load_data(file_path)
 
-# Güncelleme tarihi
-last_update = df['Otel Alış Tar.'].max().strftime("%d.%m.%Y")
-st.markdown(f"**Veri Güncelleme Tarihi:** {last_update}")
+# Dosya değişiklik tarihini al (dosya sistemi üzerinden)
+timestamp = os.path.getmtime(file_path)
+last_modified_date = st.session_state.get("last_modified_date", None)
+last_modified_date = time.strftime("%d.%m.%Y", time.localtime(timestamp))
+
+st.markdown(f"**Veri Güncelleme Tarihi (Dosya Değişiklik Tarihi):** {last_modified_date}")
 
 # Filtreler
 st.sidebar.header("🔎 Filtreler")
