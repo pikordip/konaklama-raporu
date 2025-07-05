@@ -38,25 +38,37 @@ def load_data(path):
     df = pd.read_excel(path)
     df.columns = df.columns.str.strip()
     df = df[df['Kod 3'] != 'XXX']
+
     if 'İntern Notu' in df.columns:
         df = df[~df['İntern Notu'].astype(str).str.upper().str.contains("BLOKAJ")]
+
     df = df[df['Yetişkin'] == 2]
 
-    df['Giriş Tarihi'] = pd.to_datetime(df['Giriş Tarihi'])
-    df['Çıkış Tarihi'] = pd.to_datetime(df['Çıkış Tarihi'])
-    df['Otel Alış Tar.'] = pd.to_datetime(df['Otel Alış Tar.'])
+    for col in ['Extra Bed', 'Çocuk', 'Bebek']:
+        if col in df.columns:
+            df = df[(df[col].isna()) | (df[col] == 0)]
+
+    df['Giriş Tarihi'] = pd.to_datetime(df['Giriş Tarihi'], errors='coerce')
+    df['Çıkış Tarihi'] = pd.to_datetime(df['Çıkış Tarihi'], errors='coerce')
 
     df['Geceleme'] = (df['Çıkış Tarihi'] - df['Giriş Tarihi']).dt.days
     df['Geceleme'] = df['Geceleme'].apply(lambda x: x if x > 0 else 1)
     df['Kişi_Geceleme'] = df['Geceleme'] * 2
 
-    aylar = {1: "OCAK", 2: "ŞUBAT", 3: "MART", 4: "NİSAN", 5: "MAYIS", 6: "HAZİRAN",
-             7: "TEMMUZ", 8: "AĞUSTOS", 9: "EYLÜL", 10: "EKİM", 11: "KASIM", 12: "ARALIK"}
-    df['Giriş Ayı'] = df['Giriş Tarihi'].dt.month.map(aylar)
+    aylar = {
+        1: "OCAK", 2: "ŞUBAT", 3: "MART", 4: "NİSAN", 5: "MAYIS", 6: "HAZİRAN",
+        7: "TEMMUZ", 8: "AĞUSTOS", 9: "EYLÜL", 10: "EKİM", 11: "KASIM", 12: "ARALIK"
+    }
+
+    df['Giriş Ayı No'] = df['Giriş Tarihi'].dt.month
+    df['Giriş Ayı'] = df['Giriş Ayı No'].map(aylar)
 
     return df
 
 df = load_data(file_path)
+
+# 🔔 Bilgilendirme Notu
+st.info("🔒 *Bu rapor yalnızca 2 yetişkin içeren ve çocuk, bebek veya ekstra yatak içermeyen rezervasyonları kapsamaktadır.*")
 
 # 🔍 Dinamik filtreleme (bağlantılı)
 st.sidebar.header("🔎 Filtreler")
@@ -85,7 +97,7 @@ if selected_odalar:
 @st.cache_data
 def rapor_giris_ayi(df):
     return (
-        df.groupby(['Operatör Adı', 'Otel Adı', 'Oda Tipi Tanmı', 'Giriş Ayı'])
+        df.groupby(['Operatör Adı', 'Otel Adı', 'Oda Tipi Tanmı', 'Giriş Ayı', 'Giriş Ayı No'])
         .agg(
             Toplam_Tutar=('Total Alış Fat.', 'sum'),
             Toplam_Kisi_Geceleme=('Kişi_Geceleme', 'sum')
@@ -96,12 +108,21 @@ def rapor_giris_ayi(df):
 
 rapor = rapor_giris_ayi(df_f)
 
+# 📌 Pivot tablo
 pivot = rapor.pivot_table(
     index=['Operatör Adı', 'Otel Adı', 'Oda Tipi Tanmı'],
     columns='Giriş Ayı',
     values='Kişi_Başı_Geceleme',
     aggfunc='mean'
-).applymap(lambda x: f"{x:.2f} €" if pd.notnull(x) else "")
+)
+
+# 📅 Ayları doğru sırala
+ay_sirali = ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN",
+             "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"]
+pivot = pivot[[ay for ay in ay_sirali if ay in pivot.columns]]
+
+# 💶 Formatla
+pivot = pivot.applymap(lambda x: f"{x:.2f} €" if pd.notnull(x) else "")
 
 # 📈 Sonuç
 st.markdown("### 📈 Giriş Ayına Göre Kişi Başı Geceleme Tutarları")
