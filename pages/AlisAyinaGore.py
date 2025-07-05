@@ -1,29 +1,24 @@
 import os
+import time
 import pandas as pd
 import streamlit as st
 
 st.set_page_config(page_title="Konaklama Raporu", layout="wide")
 
-# data klasöründeki excel dosyasını otomatik bul (tek dosya varsayımı)
-def find_excel_file():
-    files = os.listdir("data")
-    for f in files:
-        if f.endswith(".xlsx"):
-            return f
-    return None
+# Dosya yolu (GitHub repo içindeki data klasörü)
+file_path = "data/AKAY2025.xlsx"
 
-file_name = find_excel_file()
-if file_name is None:
-    st.error("Data klasöründe .xlsx uzantılı dosya bulunamadı!")
-    st.stop()
+# Dosya son değişiklik zamanını al (Unix timestamp)
+timestamp = os.path.getmtime(file_path)
+last_modified_date = time.strftime("%d.%m.%Y", time.localtime(timestamp))
 
-file_path = f"data/{file_name}"
+st.markdown(f"**Veri Güncelleme Tarihi (Dosya Sistemi):** {last_modified_date}")
 
+# Veri yükleme ve ön işleme
 @st.cache_data
 def load_data(path):
     df = pd.read_excel(path)
     df.columns = df.columns.str.strip()
-
     df = df[df['Kod 3'] != 'XXX']
     if 'İntern Notu' in df.columns:
         df = df[~df['İntern Notu'].astype(str).str.upper().str.contains("BLOKAJ")]
@@ -48,14 +43,6 @@ def load_data(path):
 
 df = load_data(file_path)
 
-# Dosya değişiklik tarihini al (dosya sistemi üzerinden)
-timestamp = os.path.getmtime(file_path)
-last_modified_date = st.session_state.get("last_modified_date", None)
-last_modified_date = time.strftime("%d.%m.%Y", time.localtime(timestamp))
-
-st.markdown(f"**Veri Güncelleme Tarihi (Dosya Değişiklik Tarihi):** {last_modified_date}")
-
-# Filtreler
 st.sidebar.header("🔎 Filtreler")
 oteller = st.sidebar.multiselect("🏨 Otel", sorted(df["Otel Adı"].dropna().unique()))
 operatörler = st.sidebar.multiselect("🧳 Operatör", sorted(df["Operatör Adı"].dropna().unique()))
@@ -69,7 +56,6 @@ if operatörler:
 if odalar:
     df_filtreli = df_filtreli[df_filtreli['Oda Tipi Tanmı'].isin(odalar)]
 
-# Raporlama
 rapor = (
     df_filtreli.groupby(['Operatör Adı', 'Bölge', 'Otel Adı', 'Oda Tipi Tanmı', 'Otel Alış Ayı', 'Giriş Ayı'])
     .agg(
