@@ -1,1 +1,14 @@
+[theme]
+primaryColor="#4CAF50"
+backgroundColor="#FFFFFF"
+secondaryBackgroundColor="#F0F2F6"
+textColor="#000000"
+font="sans serif"
+
+[server]
+headless = true
+
+[pages]
+"pages/konaklama_tarihi_raporu.py" = "Konaklama Tarihine Göre Rapor"
+"pages/rezervasyon_tarihi_raporu.py" = "Rezervasyon Tarihine Göre Rapor"
 
