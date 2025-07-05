@@ -1,4 +1,5 @@
 import os
+import time
 import pandas as pd
 import streamlit as st
 
@@ -46,9 +47,11 @@ def load_data(path):
 
 df = load_data(file_path)
 
-# Veri güncelleme tarihi
-last_update = df['Otel Alış Tar.'].max().strftime("%d.%m.%Y")
-st.markdown(f"**Veri Güncelleme Tarihi:** {last_update}")
+# Dosya sisteminden dosyanın son değiştirilme tarihini al
+timestamp = os.path.getmtime(file_path)
+last_modified_date = time.strftime("%d.%m.%Y", time.localtime(timestamp))
+
+st.markdown(f"**Veri Güncelleme Tarihi (Dosya Değişiklik Tarihi):** {last_modified_date}")
 
 # Filtreler
 st.sidebar.header("🔎 Filtreler")
