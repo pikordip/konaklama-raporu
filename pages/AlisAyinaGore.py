@@ -1,23 +1,28 @@
 import os
+import glob
 import time
 import pandas as pd
 import streamlit as st
 
 st.set_page_config(page_title="Konaklama Raporu", layout="wide")
 
-# Dosya yolu (GitHub repo içindeki data klasörü)
-file_path = "data/AKAY2025.xlsx"
+# data klasöründeki ilk .xlsx dosyasını bul (sadece 1 dosya olmalı)
+data_files = glob.glob("data/*.xlsx")
+if len(data_files) == 0:
+    st.error("Data klasöründe hiç Excel dosyası bulunamadı!")
+    st.stop()
 
-# Dosya son değişiklik zamanını al (Unix timestamp)
+file_path = data_files[0]
+
+# Dosya değişiklik tarihini al
 timestamp = os.path.getmtime(file_path)
 last_modified_date = time.strftime("%d.%m.%Y", time.localtime(timestamp))
-
 st.markdown(f"**Veri Güncelleme Tarihi (Dosya Sistemi):** {last_modified_date}")
 
-# Veri yükleme ve ön işleme
 @st.cache_data
 def load_data(path):
     df = pd.read_excel(path)
+    # … (önceki load_data fonksiyonundaki veri temizleme ve dönüşümler) …
     df.columns = df.columns.str.strip()
     df = df[df['Kod 3'] != 'XXX']
     if 'İntern Notu' in df.columns:
@@ -43,36 +48,4 @@ def load_data(path):
 
 df = load_data(file_path)
 
-st.sidebar.header("🔎 Filtreler")
-oteller = st.sidebar.multiselect("🏨 Otel", sorted(df["Otel Adı"].dropna().unique()))
-operatörler = st.sidebar.multiselect("🧳 Operatör", sorted(df["Operatör Adı"].dropna().unique()))
-odalar = st.sidebar.multiselect("🛏️ Oda Tipi", sorted(df["Oda Tipi Tanmı"].dropna().unique()))
-
-df_filtreli = df.copy()
-if oteller:
-    df_filtreli = df_filtreli[df_filtreli['Otel Adı'].isin(oteller)]
-if operatörler:
-    df_filtreli = df_filtreli[df_filtreli['Operatör Adı'].isin(operatörler)]
-if odalar:
-    df_filtreli = df_filtreli[df_filtreli['Oda Tipi Tanmı'].isin(odalar)]
-
-rapor = (
-    df_filtreli.groupby(['Operatör Adı', 'Bölge', 'Otel Adı', 'Oda Tipi Tanmı', 'Otel Alış Ayı', 'Giriş Ayı'])
-    .agg(
-        Toplam_Tutar=('Total Alış Fat.', 'sum'),
-        Toplam_Kisi_Geceleme=('Kişi_Geceleme', 'sum')
-    )
-    .reset_index()
-)
-
-rapor['Kişi Başı Geceleme (€)'] = rapor['Toplam_Tutar'] / rapor['Toplam_Kisi_Geceleme']
-
-pivot = rapor.pivot_table(
-    index=['Operatör Adı', 'Otel Adı', 'Oda Tipi Tanmı', 'Otel Alış Ayı'],
-    columns='Giriş Ayı',
-    values='Kişi Başı Geceleme (€)',
-    aggfunc='mean'
-).applymap(lambda x: f"{x:.2f} €" if pd.notnull(x) else "")
-
-st.markdown("### 📊 Kişi Başı Geceleme Fiyatları")
-st.dataframe(pivot, use_container_width=True)
+# … geri kalan raporlama ve filtreleme kodun aynen kalsın …
