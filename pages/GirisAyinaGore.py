@@ -53,19 +53,37 @@ last_modified_date = time.strftime("%d.%m.%Y", time.localtime(timestamp))
 
 st.markdown(f"**Veri Güncelleme Tarihi (Dosya Değişiklik Tarihi):** {last_modified_date}")
 
-# Filtreler
-st.sidebar.header("🔎 Filtreler")
-oteller = st.sidebar.multiselect("🏨 Otel", sorted(df["Otel Adı"].dropna().unique()))
-operatörler = st.sidebar.multiselect("🧳 Operatör", sorted(df["Operatör Adı"].dropna().unique()))
-odalar = st.sidebar.multiselect("🛏️ Oda Tipi", sorted(df["Oda Tipi Tanmı"].dropna().unique()))
+# Dinamik filtreleme için seçenekleri güncelle
+# Başlangıçta tüm unique değerler
+otel_options = sorted(df["Otel Adı"].dropna().unique())
+operatör_options = sorted(df["Operatör Adı"].dropna().unique())
+oda_options = sorted(df["Oda Tipi Tanmı"].dropna().unique())
 
+# Otel seçimi
+selected_oteller = st.sidebar.multiselect("🏨 Otel", options=otel_options)
+
+# Seçilen otellere göre operatör seçeneklerini filtrele
+if selected_oteller:
+    operatör_options = sorted(df[df["Otel Adı"].isin(selected_oteller)]["Operatör Adı"].dropna().unique())
+selected_operatörler = st.sidebar.multiselect("🧳 Operatör", options=operatör_options)
+
+# Seçilen otel ve operatörlere göre oda tipi seçeneklerini filtrele
+df_for_oda = df.copy()
+if selected_oteller:
+    df_for_oda = df_for_oda[df_for_oda["Otel Adı"].isin(selected_oteller)]
+if selected_operatörler:
+    df_for_oda = df_for_oda[df_for_oda["Operatör Adı"].isin(selected_operatörler)]
+oda_options = sorted(df_for_oda["Oda Tipi Tanmı"].dropna().unique())
+selected_odalar = st.sidebar.multiselect("🛏️ Oda Tipi", options=oda_options)
+
+# Filtreli veri çerçevesini oluştur
 df_filtreli = df.copy()
-if oteller:
-    df_filtreli = df_filtreli[df_filtreli['Otel Adı'].isin(oteller)]
-if operatörler:
-    df_filtreli = df_filtreli[df_filtreli['Operatör Adı'].isin(operatörler)]
-if odalar:
-    df_filtreli = df_filtreli[df_filtreli['Oda Tipi Tanmı'].isin(odalar)]
+if selected_oteller:
+    df_filtreli = df_filtreli[df_filtreli['Otel Adı'].isin(selected_oteller)]
+if selected_operatörler:
+    df_filtreli = df_filtreli[df_filtreli['Operatör Adı'].isin(selected_operatörler)]
+if selected_odalar:
+    df_filtreli = df_filtreli[df_filtreli['Oda Tipi Tanmı'].isin(selected_odalar)]
 
 @st.cache_data
 def rapor_giris_ayi(df):
