@@ -31,22 +31,31 @@ st.markdown(f"**📅 Veri Güncelleme Tarihi:** `{last_modified_date}`")
 def load_data(path):
     df = pd.read_excel(path)
     df.columns = df.columns.str.strip()
+
+    # 🔎 Temel filtreleme: Yetişkin = 2 olanlar
     df = df[df['Kod 3'] != 'XXX']
     if 'İntern Notu' in df.columns:
         df = df[~df['İntern Notu'].astype(str).str.upper().str.contains("BLOKAJ")]
     df = df[df['Yetişkin'] == 2]
 
-    df['Giriş Tarihi'] = pd.to_datetime(df['Giriş Tarihi'])
-    df['Çıkış Tarihi'] = pd.to_datetime(df['Çıkış Tarihi'])
-    df['Otel Alış Tar.'] = pd.to_datetime(df['Otel Alış Tar.'])
+    # 🧼 Ekstra kişi içeren satırları çıkar
+    for col in ['Extra Bed', 'Çocuk', 'Bebek']:
+        if col in df.columns:
+            df = df[(df[col].isna()) | (df[col] == 0)]
+
+    df['Giriş Tarihi'] = pd.to_datetime(df['Giriş Tarihi'], errors='coerce')
+    df['Çıkış Tarihi'] = pd.to_datetime(df['Çıkış Tarihi'], errors='coerce')
+    df['Otel Alış Tar.'] = pd.to_datetime(df['Otel Alış Tar.'], errors='coerce')
 
     df['Geceleme'] = (df['Çıkış Tarihi'] - df['Giriş Tarihi']).dt.days
     df['Geceleme'] = df['Geceleme'].apply(lambda x: x if x > 0 else 1)
     df['Kişi_Geceleme'] = df['Geceleme'] * 2
 
-    aylar = {1: "OCAK", 2: "ŞUBAT", 3: "MART", 4: "NİSAN", 5: "MAYIS", 6: "HAZİRAN",
-             7: "TEMMUZ", 8: "AĞUSTOS", 9: "EYLÜL", 10: "EKİM", 11: "KASIM", 12: "ARALIK"}
-    
+    aylar = {
+        1: "OCAK", 2: "ŞUBAT", 3: "MART", 4: "NİSAN", 5: "MAYIS", 6: "HAZİRAN",
+        7: "TEMMUZ", 8: "AĞUSTOS", 9: "EYLÜL", 10: "EKİM", 11: "KASIM", 12: "ARALIK"
+    }
+
     df['Giriş Ayı'] = df['Giriş Tarihi'].dt.month.map(aylar)
     df['Otel Alış Ayı'] = df['Otel Alış Tar.'].dt.month.map(aylar) + " " + df['Otel Alış Tar.'].dt.year.astype(str)
     df['Otel Alış Ayı Sıra'] = df['Otel Alış Tar.'].dt.strftime('%Y-%m')
